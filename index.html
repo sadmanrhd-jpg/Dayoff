@@ -54,9 +54,20 @@
 
     <main class="main-content">
       <header class="topbar">
-        <div>
+        <div class="topbar-identity">
           <p class="eyebrow" id="currentDateLabel">Today</p>
           <h1>Daily Office <span>/ DO</span></h1>
+          <button class="employee-profile-button" id="employeeProfileButton" type="button" aria-label="Open employee profile">
+            <span class="header-profile-avatar" aria-hidden="true">
+              <img id="headerProfileImage" alt="" hidden />
+              <span id="headerProfileInitials">DO</span>
+            </span>
+            <span class="header-profile-copy">
+              <strong id="headerProfileName">Set up employee profile</strong>
+              <span id="headerProfileDesignation">Designation not set</span>
+            </span>
+            <span class="profile-edit-indicator" aria-hidden="true">Edit</span>
+          </button>
         </div>
         <div class="topbar-actions">
           <div class="live-clock" aria-label="Current time">
@@ -238,6 +249,65 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog class="form-dialog profile-dialog" id="profileDialog">
+    <form id="profileForm">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Employee account</p>
+          <h3>Employee profile</h3>
+        </div>
+        <button type="button" class="dialog-close" data-close-dialog="profileDialog" aria-label="Close">×</button>
+      </div>
+      <p class="dialog-description">Profile details are stored in this browser for now.</p>
+
+      <div class="profile-avatar-editor">
+        <div class="profile-avatar-preview" aria-hidden="true">
+          <img id="profileAvatarPreviewImage" alt="" hidden />
+          <span id="profileAvatarPreviewInitials">DO</span>
+        </div>
+        <div class="profile-photo-actions">
+          <strong>Profile avatar</strong>
+          <span>Choose a square image. It is resized before being stored.</span>
+          <div class="profile-photo-buttons">
+            <label class="outline-button profile-upload-button" for="profileAvatarInput">
+              Choose image
+            </label>
+            <input class="visually-hidden" type="file" id="profileAvatarInput" accept="image/png,image/jpeg,image/webp" />
+            <button class="danger-outline-button profile-remove-photo" id="removeProfileAvatarButton" type="button">Remove</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid profile-form-grid">
+        <label class="form-field form-field-full">
+          <span>Name</span>
+          <input type="text" id="profileName" maxlength="80" autocomplete="name" required placeholder="Employee name" />
+        </label>
+        <label class="form-field">
+          <span>Designation</span>
+          <input type="text" id="profileDesignation" maxlength="80" autocomplete="organization-title" required placeholder="Job designation" />
+        </label>
+        <label class="form-field">
+          <span>Department</span>
+          <input type="text" id="profileDepartment" maxlength="80" autocomplete="organization" required placeholder="Department name" />
+        </label>
+        <label class="form-field">
+          <span>Email address</span>
+          <input type="email" id="profileEmail" maxlength="120" autocomplete="email" required placeholder="name@company.com" />
+        </label>
+        <label class="form-field">
+          <span>Mobile number</span>
+          <input type="tel" id="profileMobile" maxlength="30" autocomplete="tel" required placeholder="Mobile number" />
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="secondary-button" data-close-dialog="profileDialog">Cancel</button>
+        <button type="submit" class="primary-button">Save profile</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog class="form-dialog" id="attendanceEditDialog">
     <form id="attendanceEditForm">

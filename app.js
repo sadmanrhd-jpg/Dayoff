@@ -51,18 +51,61 @@
     leaveDialog: document.getElementById("leaveDialog"),
     leaveForm: document.getElementById("leaveForm"),
     leaveDate: document.getElementById("leaveDate"),
-    leaveReason: document.getElementById("leaveReason")
+    leaveReason: document.getElementById("leaveReason"),
+    employeeProfileButton: document.getElementById("employeeProfileButton"),
+    headerProfileImage: document.getElementById("headerProfileImage"),
+    headerProfileInitials: document.getElementById("headerProfileInitials"),
+    headerProfileName: document.getElementById("headerProfileName"),
+    headerProfileDesignation: document.getElementById("headerProfileDesignation"),
+    profileDialog: document.getElementById("profileDialog"),
+    profileForm: document.getElementById("profileForm"),
+    profileName: document.getElementById("profileName"),
+    profileDesignation: document.getElementById("profileDesignation"),
+    profileDepartment: document.getElementById("profileDepartment"),
+    profileEmail: document.getElementById("profileEmail"),
+    profileMobile: document.getElementById("profileMobile"),
+    profileAvatarInput: document.getElementById("profileAvatarInput"),
+    profileAvatarPreviewImage: document.getElementById("profileAvatarPreviewImage"),
+    profileAvatarPreviewInitials: document.getElementById("profileAvatarPreviewInitials"),
+    removeProfileAvatarButton: document.getElementById("removeProfileAvatarButton")
   };
 
   let state = loadState();
   let toastTimer = null;
+  let profileAvatarDraft = "";
+
+  function defaultProfile() {
+    return {
+      name: "",
+      designation: "",
+      department: "",
+      email: "",
+      mobile: "",
+      avatar: ""
+    };
+  }
+
+  function normaliseProfile(profile) {
+    const fallback = defaultProfile();
+    if (!profile || typeof profile !== "object") return fallback;
+
+    return {
+      name: typeof profile.name === "string" ? profile.name : "",
+      designation: typeof profile.designation === "string" ? profile.designation : "",
+      department: typeof profile.department === "string" ? profile.department : "",
+      email: typeof profile.email === "string" ? profile.email : "",
+      mobile: typeof profile.mobile === "string" ? profile.mobile : "",
+      avatar: typeof profile.avatar === "string" ? profile.avatar : ""
+    };
+  }
 
   function defaultState() {
     return {
-      version: 2,
+      version: 3,
       createdAt: localDateKey(),
       records: {},
-      plannedLeaves: {}
+      plannedLeaves: {},
+      profile: defaultProfile()
     };
   }
 
@@ -71,10 +114,11 @@
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (parsed && typeof parsed === "object" && parsed.records) {
         return {
-          version: 2,
+          version: 3,
           createdAt: parsed.createdAt || localDateKey(),
           records: parsed.records || {},
-          plannedLeaves: parsed.plannedLeaves || {}
+          plannedLeaves: parsed.plannedLeaves || {},
+          profile: normaliseProfile(parsed.profile)
         };
       }
     } catch (error) {
@@ -152,6 +196,150 @@
 
   function formatWeekday(date) {
     return new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(date);
+  }
+
+
+  function getProfileInitials(name) {
+    const words = String(name || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2);
+
+    if (!words.length) return "DO";
+    return words.map((word) => word[0]).join("").toUpperCase();
+  }
+
+  function setAvatarDisplay(imageElement, initialsElement, avatar, name) {
+    const hasAvatar = typeof avatar === "string" && avatar.startsWith("data:image/");
+    imageElement.hidden = !hasAvatar;
+    initialsElement.hidden = hasAvatar;
+    initialsElement.textContent = getProfileInitials(name);
+
+    if (hasAvatar) {
+      imageElement.src = avatar;
+    } else {
+      imageElement.removeAttribute("src");
+    }
+  }
+
+  function renderProfile() {
+    const profile = normaliseProfile(state.profile);
+    state.profile = profile;
+
+    elements.headerProfileName.textContent = profile.name || "Set up employee profile";
+    elements.headerProfileDesignation.textContent = profile.designation || "Designation not set";
+    elements.employeeProfileButton.title = profile.name
+      ? `${profile.name} · ${profile.designation || "Employee profile"}`
+      : "Set up employee profile";
+
+    setAvatarDisplay(
+      elements.headerProfileImage,
+      elements.headerProfileInitials,
+      profile.avatar,
+      profile.name
+    );
+  }
+
+  function updateProfileAvatarPreview() {
+    setAvatarDisplay(
+      elements.profileAvatarPreviewImage,
+      elements.profileAvatarPreviewInitials,
+      profileAvatarDraft,
+      elements.profileName.value
+    );
+    elements.removeProfileAvatarButton.disabled = !profileAvatarDraft;
+  }
+
+  function openProfileDialog() {
+    const profile = normaliseProfile(state.profile);
+    elements.profileName.value = profile.name;
+    elements.profileDesignation.value = profile.designation;
+    elements.profileDepartment.value = profile.department;
+    elements.profileEmail.value = profile.email;
+    elements.profileMobile.value = profile.mobile;
+    elements.profileAvatarInput.value = "";
+    profileAvatarDraft = profile.avatar;
+    updateProfileAvatarPreview();
+    openDialog(elements.profileDialog);
+  }
+
+  function handleProfileSubmit(event) {
+    event.preventDefault();
+
+    const profile = {
+      name: elements.profileName.value.trim(),
+      designation: elements.profileDesignation.value.trim(),
+      department: elements.profileDepartment.value.trim(),
+      email: elements.profileEmail.value.trim(),
+      mobile: elements.profileMobile.value.trim(),
+      avatar: profileAvatarDraft
+    };
+
+    if (!profile.name || !profile.designation || !profile.department || !profile.email || !profile.mobile) {
+      showToast("Complete all employee profile fields.", "error");
+      return;
+    }
+
+    state.profile = profile;
+    saveState();
+    renderProfile();
+    closeDialog(elements.profileDialog);
+    showToast("Employee profile was saved.", "success");
+  }
+
+  function resizeAvatar(file) {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("Select a PNG, JPG, or WebP image."));
+        return;
+      }
+
+      if (file.size > 8 * 1024 * 1024) {
+        reject(new Error("Select an image smaller than 8 MB."));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("The selected image could not be read."));
+      reader.onload = () => {
+        const image = new Image();
+        image.onerror = () => reject(new Error("The selected file is not a valid image."));
+        image.onload = () => {
+          const size = Math.min(image.naturalWidth, image.naturalHeight);
+          const sourceX = Math.max(0, (image.naturalWidth - size) / 2);
+          const sourceY = Math.max(0, (image.naturalHeight - size) / 2);
+          const canvas = document.createElement("canvas");
+          canvas.width = 256;
+          canvas.height = 256;
+          const context = canvas.getContext("2d");
+
+          context.drawImage(image, sourceX, sourceY, size, size, 0, 0, 256, 256);
+          resolve(canvas.toDataURL("image/jpeg", 0.84));
+        };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleProfileAvatarChange(event) {
+    const [file] = event.target.files;
+    if (!file) return;
+
+    try {
+      profileAvatarDraft = await resizeAvatar(file);
+      updateProfileAvatarPreview();
+    } catch (error) {
+      elements.profileAvatarInput.value = "";
+      showToast(error.message || "The avatar could not be processed.", "error");
+    }
+  }
+
+  function removeProfileAvatar() {
+    profileAvatarDraft = "";
+    elements.profileAvatarInput.value = "";
+    updateProfileAvatarPreview();
   }
 
   function isHoliday(date) {
@@ -623,6 +811,7 @@
   }
 
   function renderAll() {
+    renderProfile();
     renderDashboard();
     renderUpcoming();
     renderAttendanceTable();
@@ -903,7 +1092,7 @@
       });
     });
 
-    [elements.attendanceEditDialog, elements.leaveDialog].forEach((dialog) => {
+    [elements.profileDialog, elements.attendanceEditDialog, elements.leaveDialog].forEach((dialog) => {
       dialog.addEventListener("click", (event) => {
         if (event.target === dialog) closeDialog(dialog);
       });
@@ -911,10 +1100,14 @@
   }
 
   function resetData() {
-    state = defaultState();
+    const profile = normaliseProfile(state.profile);
+    state = {
+      ...defaultState(),
+      profile
+    };
     saveState();
     renderAll();
-    showToast("All local attendance data was reset.", "success");
+    showToast("Attendance, summary, and leave data were reset.", "success");
   }
 
   function setupNavigation() {
@@ -936,6 +1129,11 @@
   elements.attendanceEditForm.addEventListener("submit", handleAttendanceEditSubmit);
   elements.clearAttendanceButton.addEventListener("click", clearAttendanceTimes);
   elements.leaveForm.addEventListener("submit", handleLeaveSubmit);
+  elements.employeeProfileButton.addEventListener("click", openProfileDialog);
+  elements.profileForm.addEventListener("submit", handleProfileSubmit);
+  elements.profileAvatarInput.addEventListener("change", handleProfileAvatarChange);
+  elements.removeProfileAvatarButton.addEventListener("click", removeProfileAvatar);
+  elements.profileName.addEventListener("input", updateProfileAvatarPreview);
 
   elements.attendanceTableBody.addEventListener("click", (event) => {
     const button = event.target.closest("[data-edit-date]");
