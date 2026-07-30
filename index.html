@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#080812" />
+  <meta name="description" content="Daily Office attendance dashboard with browser based storage." />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="site.webmanifest" />
+  <title>Daily Office | Attendance Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true">DO</div>
+        <div>
+          <p class="brand-name">Daily Office</p>
+          <p class="brand-caption">Attendance workspace</p>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <a href="#dashboard" class="nav-item active">
+          <span class="nav-icon" aria-hidden="true">⌂</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="#attendance" class="nav-item">
+          <span class="nav-icon" aria-hidden="true">▦</span>
+          <span>Attendance</span>
+        </a>
+        <a href="#insights" class="nav-item">
+          <span class="nav-icon" aria-hidden="true">↗</span>
+          <span>Insights</span>
+        </a>
+      </nav>
+
+      <div class="storage-note">
+        <span class="storage-dot" aria-hidden="true"></span>
+        <div>
+          <strong>Browser storage</strong>
+          <span>Data stays on this device</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="currentDateLabel">Today</p>
+          <h1>Daily Office <span>/ DO</span></h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="live-clock" aria-label="Current time">
+            <span class="clock-dot" aria-hidden="true"></span>
+            <strong id="liveClock">00:00:00</strong>
+          </div>
+          <button class="icon-button" id="resetDataButton" type="button" aria-label="Reset attendance data" title="Reset all local data">
+            <span aria-hidden="true">↻</span>
+          </button>
+        </div>
+      </header>
+
+      <section id="dashboard" class="hero-panel section-block">
+        <div class="hero-copy">
+          <p class="eyebrow">Office attendance dashboard</p>
+          <h2 id="welcomeHeading">Good morning</h2>
+          <p>Record attendance, track monthly working time, and keep a concise daily work summary.</p>
+        </div>
+        <div class="action-panel">
+          <div class="status-pill" id="attendanceStatus">
+            <span class="status-indicator" aria-hidden="true"></span>
+            <span>Not checked in</span>
+          </div>
+          <div class="action-buttons">
+            <button class="primary-button" id="checkInButton" type="button">
+              <span aria-hidden="true">→</span>
+              Check in
+            </button>
+            <button class="secondary-button" id="checkOutButton" type="button">
+              <span aria-hidden="true">←</span>
+              Check out
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="metrics-grid" aria-label="Attendance overview">
+        <article class="metric-card accent-card">
+          <div class="metric-topline">
+            <span class="metric-label">Today's check in</span>
+            <span class="metric-icon" aria-hidden="true">◷</span>
+          </div>
+          <strong class="metric-value" id="todayCheckIn">Not recorded</strong>
+          <p class="metric-detail" id="todayCheckInDetail">Use the check in button to start your day.</p>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-topline">
+            <span class="metric-label">Leave this month</span>
+            <span class="metric-icon" aria-hidden="true">□</span>
+          </div>
+          <strong class="metric-value" id="leaveCount">0 days</strong>
+          <p class="metric-detail">Past working days without a check in.</p>
+        </article>
+
+        <article class="metric-card average-card" id="averageCard">
+          <div class="metric-topline">
+            <span class="metric-label">Average working time</span>
+            <span class="metric-icon" aria-hidden="true">⌁</span>
+          </div>
+          <strong class="metric-value" id="averageWorkingTime">0h 00m</strong>
+          <p class="metric-detail" id="averageDetail">Normal monthly average is 9 hours.</p>
+        </article>
+
+        <article class="metric-card summary-card">
+          <div class="metric-topline">
+            <span class="metric-label">Today's work summary</span>
+            <span class="save-state" id="summarySaveState">Not saved</span>
+          </div>
+          <textarea id="workSummary" rows="4" maxlength="500" placeholder="Write the main tasks completed today..."></textarea>
+          <div class="summary-footer">
+            <span id="summaryCharacterCount">0 / 500</span>
+            <button class="text-button" id="saveSummaryButton" type="button">Save summary</button>
+          </div>
+        </article>
+      </section>
+
+      <section id="insights" class="insights-grid section-block">
+        <article class="panel chart-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Working time</p>
+              <h3>Recent completed days</h3>
+            </div>
+            <span class="panel-chip">Hours</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="hoursChart" aria-label="Bar chart of working hours" role="img"></canvas>
+            <div class="empty-chart-state" id="hoursChartEmpty">Complete a check out to see working hours.</div>
+          </div>
+        </article>
+
+        <article class="panel status-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Monthly status</p>
+              <h3 id="monthStatusTitle">This month</h3>
+            </div>
+            <span class="panel-chip" id="monthCompletionChip">0%</span>
+          </div>
+          <div class="donut-layout">
+            <div class="donut-chart" id="statusDonut" aria-label="Monthly attendance completion chart" role="img">
+              <div class="donut-centre">
+                <strong id="presentDays">0</strong>
+                <span>present</span>
+              </div>
+            </div>
+            <div class="legend-list">
+              <div><span class="legend-dot present"></span><span>Present</span><strong id="presentLegend">0</strong></div>
+              <div><span class="legend-dot leave"></span><span>Leave</span><strong id="leaveLegend">0</strong></div>
+              <div><span class="legend-dot holiday"></span><span>Holiday</span><strong id="holidayLegend">0</strong></div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section id="attendance" class="panel attendance-panel section-block">
+        <div class="panel-header attendance-heading">
+          <div>
+            <p class="eyebrow">Attendance sheet</p>
+            <h3 id="attendanceMonthHeading">Current month</h3>
+          </div>
+          <div class="attendance-tools">
+            <span class="holiday-key"><span></span> Friday and Saturday</span>
+            <button class="outline-button" id="exportButton" type="button">Export CSV</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>SL</th>
+                <th>Date</th>
+                <th>Day</th>
+                <th>Check in time</th>
+                <th>Check out time</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog class="confirm-dialog" id="resetDialog">
+    <form method="dialog">
+      <div class="dialog-icon" aria-hidden="true">!</div>
+      <h3>Reset local attendance data?</h3>
+      <p>This removes all check in, check out, and work summary records saved in this browser.</p>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-button">Cancel</button>
+        <button value="confirm" class="danger-button">Reset data</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

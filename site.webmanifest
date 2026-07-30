@@ -1,0 +1,17 @@
+{
+  "name": "Daily Office Attendance",
+  "short_name": "Daily Office",
+  "description": "A browser based office attendance dashboard.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070710",
+  "theme_color": "#080812",
+  "icons": [
+    {
+      "src": "/assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
