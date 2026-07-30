@@ -33,6 +33,10 @@
           <span class="nav-icon" aria-hidden="true">▦</span>
           <span>Attendance</span>
         </a>
+        <a href="#upcoming" class="nav-item">
+          <span class="nav-icon" aria-hidden="true">◫</span>
+          <span>Upcoming</span>
+        </a>
         <a href="#insights" class="nav-item">
           <span class="nav-icon" aria-hidden="true">↗</span>
           <span>Insights</span>
@@ -69,7 +73,7 @@
         <div class="hero-copy">
           <p class="eyebrow">Office attendance dashboard</p>
           <h2 id="welcomeHeading">Good morning</h2>
-          <p>Record attendance, track monthly working time, and keep a concise daily work summary.</p>
+          <p>Record attendance, correct missed entries, track monthly working time, and keep a concise daily work summary.</p>
         </div>
         <div class="action-panel">
           <div class="status-pill" id="attendanceStatus">
@@ -108,6 +112,15 @@
           <p class="metric-detail">Past working days without a check in.</p>
         </article>
 
+        <article class="metric-card completed-card">
+          <div class="metric-topline">
+            <span class="metric-label">Completed working days</span>
+            <span class="metric-icon" aria-hidden="true">✓</span>
+          </div>
+          <strong class="metric-value" id="completedWorkingDays">0 days</strong>
+          <p class="metric-detail">Days with both check in and check out recorded.</p>
+        </article>
+
         <article class="metric-card average-card" id="averageCard">
           <div class="metric-topline">
             <span class="metric-label">Average working time</span>
@@ -127,6 +140,30 @@
             <span id="summaryCharacterCount">0 / 500</span>
             <button class="text-button" id="saveSummaryButton" type="button">Save summary</button>
           </div>
+        </article>
+      </section>
+
+      <section id="upcoming" class="upcoming-grid section-block" aria-label="Upcoming schedule">
+        <article class="panel schedule-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Office calendar</p>
+              <h3>Upcoming weekly holidays</h3>
+            </div>
+            <span class="panel-chip">Fri and Sat</span>
+          </div>
+          <div class="schedule-list" id="upcomingHolidayList"></div>
+        </article>
+
+        <article class="panel schedule-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Personal schedule</p>
+              <h3>Upcoming leaves</h3>
+            </div>
+            <button class="outline-button" id="addLeaveButton" type="button">Add leave</button>
+          </div>
+          <div class="schedule-list" id="upcomingLeaveList"></div>
         </article>
       </section>
 
@@ -190,6 +227,7 @@
                 <th>Day</th>
                 <th>Check in time</th>
                 <th>Check out time</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="attendanceTableBody"></tbody>
@@ -201,11 +239,71 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <dialog class="form-dialog" id="attendanceEditDialog">
+    <form id="attendanceEditForm">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Manual correction</p>
+          <h3>Add or edit attendance</h3>
+        </div>
+        <button type="button" class="dialog-close" data-close-dialog="attendanceEditDialog" aria-label="Close">×</button>
+      </div>
+      <p class="dialog-description">Use this when a check in or check out was recorded late or missed.</p>
+      <input type="hidden" id="editAttendanceDateKey" />
+      <div class="form-grid">
+        <label class="form-field form-field-full">
+          <span>Date</span>
+          <input type="text" id="editAttendanceDateLabel" readonly />
+        </label>
+        <label class="form-field">
+          <span>Check in time</span>
+          <input type="time" id="editCheckInTime" />
+        </label>
+        <label class="form-field">
+          <span>Check out time</span>
+          <input type="time" id="editCheckOutTime" />
+        </label>
+      </div>
+      <div class="dialog-actions dialog-actions-three">
+        <button type="button" class="danger-outline-button" id="clearAttendanceButton">Clear times</button>
+        <button type="button" class="secondary-button" data-close-dialog="attendanceEditDialog">Cancel</button>
+        <button type="submit" class="primary-button">Save attendance</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="form-dialog" id="leaveDialog">
+    <form id="leaveForm">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Personal schedule</p>
+          <h3>Add upcoming leave</h3>
+        </div>
+        <button type="button" class="dialog-close" data-close-dialog="leaveDialog" aria-label="Close">×</button>
+      </div>
+      <p class="dialog-description">The leave is stored in this browser and appears in the upcoming section and attendance sheet.</p>
+      <div class="form-grid">
+        <label class="form-field form-field-full">
+          <span>Leave date</span>
+          <input type="date" id="leaveDate" required />
+        </label>
+        <label class="form-field form-field-full">
+          <span>Reason or note</span>
+          <input type="text" id="leaveReason" maxlength="100" placeholder="Optional" />
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="secondary-button" data-close-dialog="leaveDialog">Cancel</button>
+        <button type="submit" class="primary-button">Save leave</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog class="confirm-dialog" id="resetDialog">
     <form method="dialog">
       <div class="dialog-icon" aria-hidden="true">!</div>
       <h3>Reset local attendance data?</h3>
-      <p>This removes all check in, check out, and work summary records saved in this browser.</p>
+      <p>This removes all check in, check out, work summary, and planned leave records saved in this browser.</p>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-button">Cancel</button>
         <button value="confirm" class="danger-button">Reset data</button>

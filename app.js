@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = "dailyOfficeAttendance_v1";
   const NORMAL_AVERAGE_HOURS = 9;
-  const DAY_MS = 24 * 60 * 60 * 1000;
+  const UPCOMING_ITEM_LIMIT = 6;
 
   const elements = {
     currentDateLabel: document.getElementById("currentDateLabel"),
@@ -15,6 +15,7 @@
     todayCheckIn: document.getElementById("todayCheckIn"),
     todayCheckInDetail: document.getElementById("todayCheckInDetail"),
     leaveCount: document.getElementById("leaveCount"),
+    completedWorkingDays: document.getElementById("completedWorkingDays"),
     averageCard: document.getElementById("averageCard"),
     averageWorkingTime: document.getElementById("averageWorkingTime"),
     averageDetail: document.getElementById("averageDetail"),
@@ -22,6 +23,9 @@
     saveSummaryButton: document.getElementById("saveSummaryButton"),
     summaryCharacterCount: document.getElementById("summaryCharacterCount"),
     summarySaveState: document.getElementById("summarySaveState"),
+    upcomingHolidayList: document.getElementById("upcomingHolidayList"),
+    upcomingLeaveList: document.getElementById("upcomingLeaveList"),
+    addLeaveButton: document.getElementById("addLeaveButton"),
     hoursChart: document.getElementById("hoursChart"),
     hoursChartEmpty: document.getElementById("hoursChartEmpty"),
     monthStatusTitle: document.getElementById("monthStatusTitle"),
@@ -36,30 +40,48 @@
     exportButton: document.getElementById("exportButton"),
     toast: document.getElementById("toast"),
     resetDataButton: document.getElementById("resetDataButton"),
-    resetDialog: document.getElementById("resetDialog")
+    resetDialog: document.getElementById("resetDialog"),
+    attendanceEditDialog: document.getElementById("attendanceEditDialog"),
+    attendanceEditForm: document.getElementById("attendanceEditForm"),
+    editAttendanceDateKey: document.getElementById("editAttendanceDateKey"),
+    editAttendanceDateLabel: document.getElementById("editAttendanceDateLabel"),
+    editCheckInTime: document.getElementById("editCheckInTime"),
+    editCheckOutTime: document.getElementById("editCheckOutTime"),
+    clearAttendanceButton: document.getElementById("clearAttendanceButton"),
+    leaveDialog: document.getElementById("leaveDialog"),
+    leaveForm: document.getElementById("leaveForm"),
+    leaveDate: document.getElementById("leaveDate"),
+    leaveReason: document.getElementById("leaveReason")
   };
 
   let state = loadState();
   let toastTimer = null;
+
+  function defaultState() {
+    return {
+      version: 2,
+      createdAt: localDateKey(),
+      records: {},
+      plannedLeaves: {}
+    };
+  }
 
   function loadState() {
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (parsed && typeof parsed === "object" && parsed.records) {
         return {
-          ...parsed,
-          createdAt: parsed.createdAt || localDateKey()
+          version: 2,
+          createdAt: parsed.createdAt || localDateKey(),
+          records: parsed.records || {},
+          plannedLeaves: parsed.plannedLeaves || {}
         };
       }
     } catch (error) {
       console.error("Could not read attendance data", error);
     }
 
-    return {
-      version: 1,
-      createdAt: localDateKey(),
-      records: {}
-    };
+    return defaultState();
   }
 
   function saveState() {
@@ -76,6 +98,24 @@
   function parseDateKey(key) {
     const [year, month, day] = key.split("-").map(Number);
     return new Date(year, month - 1, day);
+  }
+
+  function startOfDay(date = new Date()) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+  function timeInputValue(timestamp) {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  }
+
+  function timestampFromDateAndTime(dateKey, timeValue) {
+    if (!timeValue) return null;
+    const date = parseDateKey(dateKey);
+    const [hours, minutes] = timeValue.split(":").map(Number);
+    date.setHours(hours, minutes, 0, 0);
+    return date.toISOString();
   }
 
   function formatTime(timestamp) {
@@ -95,11 +135,23 @@
     }).format(date);
   }
 
+  function formatShortDate(date) {
+    return new Intl.DateTimeFormat("en-GB", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short"
+    }).format(date);
+  }
+
   function formatMonth(date) {
     return new Intl.DateTimeFormat("en-GB", {
       month: "long",
       year: "numeric"
     }).format(date);
+  }
+
+  function formatWeekday(date) {
+    return new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(date);
   }
 
   function isHoliday(date) {
@@ -152,34 +204,36 @@
 
   function getMonthlyStats() {
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const trackingStart = parseDateKey(state.createdAt || localDateKey(now));
-    trackingStart.setHours(0, 0, 0, 0);
+    const todayStart = startOfDay(now);
+    const trackingStart = startOfDay(parseDateKey(state.createdAt || localDateKey(now)));
     const dates = getMonthDates(now);
     let present = 0;
     let leave = 0;
     let holidays = 0;
+    let completed = 0;
 
     dates.forEach((date) => {
       const key = localDateKey(date);
-      const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const dateStart = startOfDay(date);
       const isPast = dateStart < todayStart;
       const isElapsed = dateStart <= todayStart;
       const isTracked = dateStart >= trackingStart;
+      const record = state.records[key];
 
       if (isHoliday(date)) {
         if (isElapsed && isTracked) holidays += 1;
         return;
       }
 
-      if (state.records[key]?.checkIn) {
+      if (record?.checkIn) {
         present += 1;
+        if (record.checkOut && getWorkingDurationHours(record)) completed += 1;
       } else if (isPast && isTracked) {
         leave += 1;
       }
     });
 
-    return { present, leave, holidays };
+    return { present, leave, holidays, completed };
   }
 
   function updateClock() {
@@ -211,8 +265,9 @@
     const todayKey = localDateKey(now);
     const todayRecord = state.records[todayKey] || {};
     const holidayToday = isHoliday(now);
+    const plannedLeaveToday = state.plannedLeaves[todayKey];
 
-    elements.attendanceStatus.classList.remove("checked-in", "checked-out");
+    elements.attendanceStatus.classList.remove("checked-in", "checked-out", "on-leave");
 
     if (todayRecord.checkOut) {
       elements.attendanceStatus.classList.add("checked-out");
@@ -222,11 +277,14 @@
       elements.attendanceStatus.querySelector("span:last-child").textContent = `Working since ${formatTime(todayRecord.checkIn)}`;
     } else if (holidayToday) {
       elements.attendanceStatus.querySelector("span:last-child").textContent = "Weekly holiday";
+    } else if (plannedLeaveToday) {
+      elements.attendanceStatus.classList.add("on-leave");
+      elements.attendanceStatus.querySelector("span:last-child").textContent = "Planned leave";
     } else {
       elements.attendanceStatus.querySelector("span:last-child").textContent = "Not checked in";
     }
 
-    elements.checkInButton.disabled = Boolean(todayRecord.checkIn) || holidayToday;
+    elements.checkInButton.disabled = Boolean(todayRecord.checkIn) || holidayToday || Boolean(plannedLeaveToday);
     elements.checkOutButton.disabled = !todayRecord.checkIn || Boolean(todayRecord.checkOut) || holidayToday;
 
     if (todayRecord.checkIn) {
@@ -237,6 +295,9 @@
     } else if (holidayToday) {
       elements.todayCheckIn.textContent = "Weekly holiday";
       elements.todayCheckInDetail.textContent = "Friday and Saturday are marked as holidays.";
+    } else if (plannedLeaveToday) {
+      elements.todayCheckIn.textContent = "Planned leave";
+      elements.todayCheckInDetail.textContent = plannedLeaveToday.reason || "This day is marked as personal leave.";
     } else {
       elements.todayCheckIn.textContent = "Not recorded";
       elements.todayCheckInDetail.textContent = "Use the check in button to start your day.";
@@ -244,6 +305,7 @@
 
     const stats = getMonthlyStats();
     elements.leaveCount.textContent = `${stats.leave} ${stats.leave === 1 ? "day" : "days"}`;
+    elements.completedWorkingDays.textContent = `${stats.completed} ${stats.completed === 1 ? "day" : "days"}`;
 
     const completedHours = getCurrentMonthRecordEntries()
       .map(([, record]) => getWorkingDurationHours(record))
@@ -270,14 +332,14 @@
     }
 
     elements.workSummary.value = todayRecord.summary || "";
-    updateSummaryCount();
+    setSummaryCount();
     elements.summarySaveState.textContent = todayRecord.summary ? "Saved" : "Not saved";
     elements.summarySaveState.classList.toggle("saved", Boolean(todayRecord.summary));
   }
 
   function renderAttendanceTable() {
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = startOfDay(now);
     const dates = getMonthDates(now);
     const fragment = document.createDocumentFragment();
 
@@ -286,36 +348,148 @@
     dates.forEach((date, index) => {
       const key = localDateKey(date);
       const record = state.records[key] || {};
+      const plannedLeave = state.plannedLeaves[key];
       const row = document.createElement("tr");
       const holiday = isHoliday(date);
-      const future = date > todayStart;
+      const future = startOfDay(date) > todayStart;
 
       if (holiday) row.classList.add("holiday-row");
+      if (plannedLeave && !holiday) row.classList.add("planned-leave-row");
       if (isSameDate(date, now)) row.classList.add("today-row");
       if (future) row.classList.add("future-row");
 
       const values = [
         String(index + 1).padStart(2, "0"),
         formatDate(date),
-        `<span class="day-tag">${new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(date)}</span>`,
-        holiday ? "Holiday" : formatTime(record.checkIn),
-        holiday ? "Holiday" : formatTime(record.checkOut)
+        formatWeekday(date),
+        holiday ? "Holiday" : plannedLeave && !record.checkIn ? "Planned leave" : formatTime(record.checkIn),
+        holiday ? "Holiday" : plannedLeave && !record.checkIn ? "Planned leave" : formatTime(record.checkOut)
       ];
 
       values.forEach((value, cellIndex) => {
         const cell = document.createElement("td");
         if (cellIndex === 2) {
-          cell.innerHTML = value;
+          const tag = document.createElement("span");
+          tag.className = "day-tag";
+          tag.textContent = value;
+          cell.appendChild(tag);
         } else {
           cell.textContent = value;
         }
         row.appendChild(cell);
       });
 
+      const actionCell = document.createElement("td");
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "table-action-button";
+      editButton.dataset.editDate = key;
+      editButton.textContent = record.checkIn || record.checkOut ? "Edit" : "Add";
+      editButton.disabled = holiday || future;
+      editButton.title = holiday
+        ? "Weekly holidays cannot be edited"
+        : future
+          ? "Future attendance cannot be entered"
+          : "Add or edit attendance times";
+      actionCell.appendChild(editButton);
+      row.appendChild(actionCell);
+
       fragment.appendChild(row);
     });
 
     elements.attendanceTableBody.replaceChildren(fragment);
+  }
+
+  function getUpcomingHolidays() {
+    const dates = [];
+    const cursor = startOfDay(new Date());
+    cursor.setDate(cursor.getDate() + 1);
+
+    while (dates.length < UPCOMING_ITEM_LIMIT) {
+      if (isHoliday(cursor)) dates.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return dates;
+  }
+
+  function getUpcomingLeaves() {
+    const today = startOfDay(new Date());
+    return Object.entries(state.plannedLeaves)
+      .filter(([key]) => startOfDay(parseDateKey(key)) >= today)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(0, UPCOMING_ITEM_LIMIT);
+  }
+
+  function createScheduleItem({ date, title, detail, type, removableDate }) {
+    const item = document.createElement("div");
+    item.className = `schedule-item ${type}`;
+
+    const dateBadge = document.createElement("div");
+    dateBadge.className = "schedule-date-badge";
+    const dateNumber = document.createElement("strong");
+    dateNumber.textContent = String(date.getDate()).padStart(2, "0");
+    const monthName = document.createElement("span");
+    monthName.textContent = new Intl.DateTimeFormat("en-GB", { month: "short" }).format(date);
+    dateBadge.append(dateNumber, monthName);
+
+    const copy = document.createElement("div");
+    copy.className = "schedule-copy";
+    const heading = document.createElement("strong");
+    heading.textContent = title;
+    const description = document.createElement("span");
+    description.textContent = detail;
+    copy.append(heading, description);
+
+    item.append(dateBadge, copy);
+
+    if (removableDate) {
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "schedule-remove-button";
+      removeButton.dataset.removeLeave = removableDate;
+      removeButton.setAttribute("aria-label", `Remove leave on ${formatDate(date)}`);
+      removeButton.title = "Remove planned leave";
+      removeButton.textContent = "×";
+      item.appendChild(removeButton);
+    }
+
+    return item;
+  }
+
+  function renderUpcoming() {
+    const holidayFragment = document.createDocumentFragment();
+    getUpcomingHolidays().forEach((date) => {
+      holidayFragment.appendChild(createScheduleItem({
+        date,
+        title: "Weekly holiday",
+        detail: `${formatWeekday(date)}, ${formatDate(date)}`,
+        type: "holiday"
+      }));
+    });
+    elements.upcomingHolidayList.replaceChildren(holidayFragment);
+
+    const upcomingLeaves = getUpcomingLeaves();
+    if (!upcomingLeaves.length) {
+      const emptyState = document.createElement("div");
+      emptyState.className = "schedule-empty-state";
+      emptyState.innerHTML = "<strong>No upcoming leave</strong><span>Add a planned leave to show it here.</span>";
+      elements.upcomingLeaveList.replaceChildren(emptyState);
+      return;
+    }
+
+    const leaveFragment = document.createDocumentFragment();
+    upcomingLeaves.forEach(([key, leave]) => {
+      const date = parseDateKey(key);
+      leaveFragment.appendChild(createScheduleItem({
+        date,
+        title: "Personal leave",
+        detail: leave.reason || formatShortDate(date),
+        type: "leave",
+        removableDate: key
+      }));
+    });
+    elements.upcomingLeaveList.replaceChildren(leaveFragment);
   }
 
   function renderMonthlyStatus() {
@@ -357,6 +531,8 @@
 
     const canvas = elements.hoursChart;
     const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(rect.width * ratio));
     canvas.height = Math.max(1, Math.floor(rect.height * ratio));
@@ -448,6 +624,7 @@
 
   function renderAll() {
     renderDashboard();
+    renderUpcoming();
     renderAttendanceTable();
     renderMonthlyStatus();
     requestAnimationFrame(renderHoursChart);
@@ -455,14 +632,19 @@
 
   function handleCheckIn() {
     const now = new Date();
+    const key = localDateKey(now);
+
     if (isHoliday(now)) {
       showToast("Friday and Saturday are weekly holidays.", "error");
       return;
     }
 
-    const key = localDateKey(now);
-    const record = state.records[key] || {};
+    if (state.plannedLeaves[key]) {
+      showToast("Remove today's planned leave before checking in.", "error");
+      return;
+    }
 
+    const record = state.records[key] || {};
     if (record.checkIn) {
       showToast("Today's check in is already recorded.", "error");
       return;
@@ -520,10 +702,126 @@
     showToast(summary ? "Today's work summary was saved." : "Today's work summary was cleared.", "success");
   }
 
-  function updateSummaryCount() {
+  function setSummaryCount() {
     elements.summaryCharacterCount.textContent = `${elements.workSummary.value.length} / 500`;
+  }
+
+  function markSummaryUnsaved() {
+    setSummaryCount();
     elements.summarySaveState.textContent = "Unsaved changes";
     elements.summarySaveState.classList.remove("saved");
+  }
+
+  function openAttendanceEditor(dateKey) {
+    const date = parseDateKey(dateKey);
+    if (isHoliday(date) || startOfDay(date) > startOfDay(new Date())) return;
+
+    const record = state.records[dateKey] || {};
+    elements.editAttendanceDateKey.value = dateKey;
+    elements.editAttendanceDateLabel.value = `${formatDate(date)} · ${formatWeekday(date)}`;
+    elements.editCheckInTime.value = timeInputValue(record.checkIn);
+    elements.editCheckOutTime.value = timeInputValue(record.checkOut);
+    openDialog(elements.attendanceEditDialog);
+  }
+
+  function handleAttendanceEditSubmit(event) {
+    event.preventDefault();
+    const dateKey = elements.editAttendanceDateKey.value;
+    const checkInTime = elements.editCheckInTime.value;
+    const checkOutTime = elements.editCheckOutTime.value;
+
+    if (checkOutTime && !checkInTime) {
+      showToast("Enter a check in time before the check out time.", "error");
+      return;
+    }
+
+    const checkIn = timestampFromDateAndTime(dateKey, checkInTime);
+    const checkOut = timestampFromDateAndTime(dateKey, checkOutTime);
+
+    if (checkIn && checkOut && new Date(checkOut) <= new Date(checkIn)) {
+      showToast("Check out time must be later than check in time.", "error");
+      return;
+    }
+
+    const existing = state.records[dateKey] || {};
+    if (!checkIn && !checkOut) {
+      if (existing.summary) {
+        state.records[dateKey] = { summary: existing.summary };
+      } else {
+        delete state.records[dateKey];
+      }
+    } else {
+      state.records[dateKey] = {
+        ...existing,
+        checkIn,
+        checkOut,
+        summary: existing.summary || "",
+        manuallyEditedAt: new Date().toISOString()
+      };
+      delete state.plannedLeaves[dateKey];
+    }
+
+    saveState();
+    closeDialog(elements.attendanceEditDialog);
+    renderAll();
+    showToast("Attendance data was updated.", "success");
+  }
+
+  function clearAttendanceTimes() {
+    elements.editCheckInTime.value = "";
+    elements.editCheckOutTime.value = "";
+  }
+
+  function openLeaveDialog() {
+    elements.leaveForm.reset();
+    elements.leaveDate.min = localDateKey();
+    elements.leaveDate.value = "";
+    openDialog(elements.leaveDialog);
+  }
+
+  function handleLeaveSubmit(event) {
+    event.preventDefault();
+    const dateKey = elements.leaveDate.value;
+    const reason = elements.leaveReason.value.trim();
+
+    if (!dateKey) {
+      showToast("Select a leave date.", "error");
+      return;
+    }
+
+    const leaveDate = parseDateKey(dateKey);
+    if (startOfDay(leaveDate) < startOfDay(new Date())) {
+      showToast("Upcoming leave cannot be added to a past date.", "error");
+      return;
+    }
+
+    if (isHoliday(leaveDate)) {
+      showToast("Friday and Saturday are already weekly holidays.", "error");
+      return;
+    }
+
+    if (state.records[dateKey]?.checkIn) {
+      showToast("Attendance already exists for this date.", "error");
+      return;
+    }
+
+    state.plannedLeaves[dateKey] = {
+      reason,
+      createdAt: new Date().toISOString()
+    };
+
+    saveState();
+    closeDialog(elements.leaveDialog);
+    renderAll();
+    showToast("Upcoming leave was added.", "success");
+  }
+
+  function removePlannedLeave(dateKey) {
+    if (!state.plannedLeaves[dateKey]) return;
+    delete state.plannedLeaves[dateKey];
+    saveState();
+    renderAll();
+    showToast("Planned leave was removed.", "success");
   }
 
   function exportCsv() {
@@ -534,12 +832,13 @@
       const key = localDateKey(date);
       const record = state.records[key] || {};
       const holiday = isHoliday(date);
+      const plannedLeave = state.plannedLeaves[key] && !record.checkIn;
       rows.push([
         index + 1,
         formatDate(date),
-        new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(date),
-        holiday ? "Holiday" : formatTime(record.checkIn),
-        holiday ? "Holiday" : formatTime(record.checkOut)
+        formatWeekday(date),
+        holiday ? "Holiday" : plannedLeave ? "Planned leave" : formatTime(record.checkIn),
+        holiday ? "Holiday" : plannedLeave ? "Planned leave" : formatTime(record.checkOut)
       ]);
     });
 
@@ -568,7 +867,23 @@
     }, 3200);
   }
 
-  function setupResetDialog() {
+  function openDialog(dialog) {
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute("open", "");
+    }
+  }
+
+  function closeDialog(dialog) {
+    if (typeof dialog.close === "function") {
+      dialog.close();
+    } else {
+      dialog.removeAttribute("open");
+    }
+  }
+
+  function setupDialogs() {
     elements.resetDataButton.addEventListener("click", () => {
       if (typeof elements.resetDialog.showModal === "function") {
         elements.resetDialog.showModal();
@@ -578,14 +893,25 @@
     });
 
     elements.resetDialog.addEventListener("close", () => {
-      if (elements.resetDialog.returnValue === "confirm") {
-        resetData();
-      }
+      if (elements.resetDialog.returnValue === "confirm") resetData();
+    });
+
+    document.querySelectorAll("[data-close-dialog]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const dialog = document.getElementById(button.dataset.closeDialog);
+        if (dialog) closeDialog(dialog);
+      });
+    });
+
+    [elements.attendanceEditDialog, elements.leaveDialog].forEach((dialog) => {
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) closeDialog(dialog);
+      });
     });
   }
 
   function resetData() {
-    state = { version: 1, createdAt: localDateKey(), records: {} };
+    state = defaultState();
     saveState();
     renderAll();
     showToast("All local attendance data was reset.", "success");
@@ -604,11 +930,26 @@
   elements.checkInButton.addEventListener("click", handleCheckIn);
   elements.checkOutButton.addEventListener("click", handleCheckOut);
   elements.saveSummaryButton.addEventListener("click", handleSaveSummary);
-  elements.workSummary.addEventListener("input", updateSummaryCount);
+  elements.workSummary.addEventListener("input", markSummaryUnsaved);
   elements.exportButton.addEventListener("click", exportCsv);
+  elements.addLeaveButton.addEventListener("click", openLeaveDialog);
+  elements.attendanceEditForm.addEventListener("submit", handleAttendanceEditSubmit);
+  elements.clearAttendanceButton.addEventListener("click", clearAttendanceTimes);
+  elements.leaveForm.addEventListener("submit", handleLeaveSubmit);
+
+  elements.attendanceTableBody.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-edit-date]");
+    if (button && !button.disabled) openAttendanceEditor(button.dataset.editDate);
+  });
+
+  elements.upcomingLeaveList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-leave]");
+    if (button) removePlannedLeave(button.dataset.removeLeave);
+  });
+
   window.addEventListener("resize", () => requestAnimationFrame(renderHoursChart));
 
-  setupResetDialog();
+  setupDialogs();
   setupNavigation();
   updateClock();
   renderAll();

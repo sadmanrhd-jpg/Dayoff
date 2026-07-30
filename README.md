@@ -5,17 +5,22 @@ Daily Office, also shown as DO, is a responsive office attendance dashboard buil
 ## Features
 
 1. Daily check in and check out
-2. Current day attendance status
-3. Monthly leave calculation
-4. Monthly average working time with status based card styling
-5. Daily work summary
-6. Current month attendance sheet
-7. Friday and Saturday holiday highlighting
-8. Recent working hours chart
-9. Monthly attendance status chart
-10. CSV export
-11. Local data reset
-12. Responsive desktop and mobile layout
+2. Manual attendance correction for missed or late entries
+3. Current day attendance status
+4. Monthly leave calculation
+5. Completed working days card
+6. Monthly average working time with status based card styling
+7. Daily work summary
+8. Upcoming Friday and Saturday holidays
+9. Personal upcoming leave planning with add and remove controls
+10. Current month attendance sheet
+11. Friday and Saturday holiday highlighting
+12. Planned leave highlighting
+13. Recent working hours chart
+14. Monthly attendance status chart
+15. CSV export
+16. Local data reset
+17. Responsive desktop and mobile layout
 
 ## Project files
 
@@ -85,7 +90,13 @@ Records are stored under this key:
 dailyOfficeAttendance_v1
 ```
 
+Existing records from the earlier version remain compatible. The current data model adds `plannedLeaves` and manual edit metadata without changing the storage key.
+
 The data is available only in the same browser and device. Clearing browser site data, using another browser, or using another device does not carry the attendance records across.
+
+## Manual attendance correction
+
+Use the **Add** or **Edit** button in the attendance sheet. You can enter or change check in and check out times for today or any earlier working day in the current month. Future dates and weekly holidays cannot be edited.
 
 ## Later Supabase migration
 
