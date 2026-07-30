@@ -7,7 +7,6 @@
 
   const elements = {
     currentDateLabel: document.getElementById("currentDateLabel"),
-    liveClock: document.getElementById("liveClock"),
     welcomeHeading: document.getElementById("welcomeHeading"),
     attendanceStatus: document.getElementById("attendanceStatus"),
     checkInButton: document.getElementById("checkInButton"),
@@ -425,20 +424,13 @@
     return { present, leave, holidays, completed };
   }
 
-  function updateClock() {
+  function updateHeaderDate() {
     const now = new Date();
     elements.currentDateLabel.textContent = new Intl.DateTimeFormat("en-GB", {
       weekday: "long",
       day: "2-digit",
       month: "long",
       year: "numeric"
-    }).format(now);
-
-    elements.liveClock.textContent = new Intl.DateTimeFormat("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false
     }).format(now);
 
     const hour = now.getHours();
@@ -1166,7 +1158,7 @@
 
   setupDialogs();
   setupNavigation();
-  updateClock();
+  updateHeaderDate();
   renderAll();
-  window.setInterval(updateClock, 1000);
+  window.setInterval(updateHeaderDate, 60000);
 })();

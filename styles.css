@@ -251,26 +251,6 @@ input:focus-visible {
   gap: 10px;
 }
 
-.live-clock {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 42px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(255,255,255,0.025);
-  font-variant-numeric: tabular-nums;
-}
-
-.clock-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 12px rgba(74, 222, 128, 0.75);
-}
-
 .icon-button {
   width: 42px;
   height: 42px;
@@ -1013,10 +993,6 @@ tbody tr.future-row td {
     padding-inline: 0;
   }
 
-  .live-clock {
-    display: none;
-  }
-
   .hero-panel {
     align-items: stretch;
     flex-direction: column;
@@ -1432,7 +1408,7 @@ tbody tr.planned-leave-row:not(.holiday-row) td {
 
 /* Employee profile */
 .topbar {
-  min-height: 132px;
+  min-height: 98px;
 }
 
 .topbar-identity {
@@ -1443,13 +1419,13 @@ tbody tr.planned-leave-row:not(.holiday-row) td {
 
 .employee-profile-button {
   width: fit-content;
-  max-width: min(430px, 100%);
+  max-width: min(390px, 48vw);
   min-height: 48px;
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 0;
   padding: 5px 8px 5px 5px;
   border: 1px solid var(--border);
   border-radius: 13px;
@@ -1608,34 +1584,45 @@ tbody tr.planned-leave-row:not(.holiday-row) td {
 
 @media (max-width: 780px) {
   .topbar {
-    min-height: 128px;
+    min-height: 88px;
   }
 
   .employee-profile-button {
-    max-width: calc(100vw - 92px);
+    max-width: min(330px, 52vw);
+  }
+
+  .profile-edit-indicator {
+    display: none;
   }
 }
 
 @media (max-width: 480px) {
   .topbar {
-    align-items: flex-start;
-    min-height: 132px;
+    align-items: center;
+    min-height: 82px;
   }
 
   .topbar-actions {
-    padding-top: 5px;
+    gap: 7px;
   }
 
   .employee-profile-button {
-    max-width: calc(100vw - 84px);
-    grid-template-columns: 36px minmax(0, 1fr);
+    width: 42px;
+    min-width: 42px;
+    max-width: 42px;
+    min-height: 42px;
+    grid-template-columns: 1fr;
+    padding: 2px;
+    border-radius: 12px;
   }
 
   .header-profile-avatar {
     width: 36px;
     height: 36px;
+    margin: auto;
   }
 
+  .header-profile-copy,
   .profile-edit-indicator {
     display: none;
   }
