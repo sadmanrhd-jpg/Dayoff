@@ -238,6 +238,7 @@
                 <th>Day</th>
                 <th>Check in time</th>
                 <th>Check out time</th>
+                <th>Work updates</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -332,6 +333,11 @@
         <label class="form-field">
           <span>Check out time</span>
           <input type="time" id="editCheckOutTime" />
+        </label>
+        <label class="form-field form-field-full">
+          <span>Work update</span>
+          <textarea id="editWorkUpdate" rows="5" maxlength="500" placeholder="Write the main tasks completed on this day..."></textarea>
+          <small class="field-help">The full update appears here. The attendance sheet shows a shortened preview.</small>
         </label>
       </div>
       <div class="dialog-actions dialog-actions-three">

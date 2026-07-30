@@ -47,6 +47,7 @@
     editAttendanceDateLabel: document.getElementById("editAttendanceDateLabel"),
     editCheckInTime: document.getElementById("editCheckInTime"),
     editCheckOutTime: document.getElementById("editCheckOutTime"),
+    editWorkUpdate: document.getElementById("editWorkUpdate"),
     clearAttendanceButton: document.getElementById("clearAttendanceButton"),
     leaveDialog: document.getElementById("leaveDialog"),
     leaveForm: document.getElementById("leaveForm"),
@@ -567,18 +568,34 @@
         row.appendChild(cell);
       });
 
+      const workUpdateCell = document.createElement("td");
+      workUpdateCell.className = "work-update-cell";
+      const workUpdateButton = document.createElement("button");
+      workUpdateButton.type = "button";
+      workUpdateButton.className = "work-update-preview";
+      workUpdateButton.dataset.editDate = key;
+      workUpdateButton.textContent = record.summary || "No update";
+      workUpdateButton.title = record.summary || "Add a work update";
+      workUpdateButton.disabled = holiday || future;
+      workUpdateButton.setAttribute(
+        "aria-label",
+        record.summary ? `View or edit work update for ${formatDate(date)}` : `Add work update for ${formatDate(date)}`
+      );
+      workUpdateCell.appendChild(workUpdateButton);
+      row.appendChild(workUpdateCell);
+
       const actionCell = document.createElement("td");
       const editButton = document.createElement("button");
       editButton.type = "button";
       editButton.className = "table-action-button";
       editButton.dataset.editDate = key;
-      editButton.textContent = record.checkIn || record.checkOut ? "Edit" : "Add";
+      editButton.textContent = record.checkIn || record.checkOut || record.summary ? "Edit" : "Add";
       editButton.disabled = holiday || future;
       editButton.title = holiday
         ? "Weekly holidays cannot be edited"
         : future
           ? "Future attendance cannot be entered"
-          : "Add or edit attendance times";
+          : "Add or edit attendance and work update";
       actionCell.appendChild(editButton);
       row.appendChild(actionCell);
 
@@ -910,6 +927,7 @@
     elements.editAttendanceDateLabel.value = `${formatDate(date)} · ${formatWeekday(date)}`;
     elements.editCheckInTime.value = timeInputValue(record.checkIn);
     elements.editCheckOutTime.value = timeInputValue(record.checkOut);
+    elements.editWorkUpdate.value = record.summary || "";
     openDialog(elements.attendanceEditDialog);
   }
 
@@ -918,6 +936,7 @@
     const dateKey = elements.editAttendanceDateKey.value;
     const checkInTime = elements.editCheckInTime.value;
     const checkOutTime = elements.editCheckOutTime.value;
+    const summary = elements.editWorkUpdate.value.trim();
 
     if (checkOutTime && !checkInTime) {
       showToast("Enter a check in time before the check out time.", "error");
@@ -933,27 +952,24 @@
     }
 
     const existing = state.records[dateKey] || {};
-    if (!checkIn && !checkOut) {
-      if (existing.summary) {
-        state.records[dateKey] = { summary: existing.summary };
-      } else {
-        delete state.records[dateKey];
-      }
+    if (!checkIn && !checkOut && !summary) {
+      delete state.records[dateKey];
     } else {
       state.records[dateKey] = {
         ...existing,
         checkIn,
         checkOut,
-        summary: existing.summary || "",
+        summary,
         manuallyEditedAt: new Date().toISOString()
       };
-      delete state.plannedLeaves[dateKey];
+
+      if (checkIn) delete state.plannedLeaves[dateKey];
     }
 
     saveState();
     closeDialog(elements.attendanceEditDialog);
     renderAll();
-    showToast("Attendance data was updated.", "success");
+    showToast("Attendance and work update were saved.", "success");
   }
 
   function clearAttendanceTimes() {
@@ -1015,7 +1031,7 @@
 
   function exportCsv() {
     const now = new Date();
-    const rows = [["SL", "Date", "Day", "Check in time", "Check out time"]];
+    const rows = [["SL", "Date", "Day", "Check in time", "Check out time", "Work updates"]];
 
     getMonthDates(now).forEach((date, index) => {
       const key = localDateKey(date);
@@ -1027,7 +1043,8 @@
         formatDate(date),
         formatWeekday(date),
         holiday ? "Holiday" : plannedLeave ? "Planned leave" : formatTime(record.checkIn),
-        holiday ? "Holiday" : plannedLeave ? "Planned leave" : formatTime(record.checkOut)
+        holiday ? "Holiday" : plannedLeave ? "Planned leave" : formatTime(record.checkOut),
+        record.summary || ""
       ]);
     });
 

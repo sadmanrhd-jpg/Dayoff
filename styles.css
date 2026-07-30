@@ -755,7 +755,7 @@ input:focus-visible {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 830px;
+  min-width: 1080px;
 }
 
 th,
@@ -1656,4 +1656,57 @@ tbody tr.planned-leave-row:not(.holiday-row) td {
 .header-profile-avatar span[hidden],
 .profile-avatar-preview span[hidden] {
   display: none !important;
+}
+
+
+/* Work update preview in the attendance sheet */
+.work-update-cell {
+  width: 260px;
+  max-width: 260px;
+}
+
+.work-update-preview {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  padding: 7px 9px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #c8c8d1;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: 160ms ease;
+}
+
+.work-update-preview:hover:not(:disabled),
+.work-update-preview:focus-visible:not(:disabled) {
+  border-color: rgba(167, 139, 250, 0.28);
+  background: rgba(167, 139, 250, 0.08);
+  color: #f1efff;
+  outline: none;
+}
+
+.work-update-preview:disabled {
+  color: inherit;
+  cursor: default;
+  opacity: 0.75;
+}
+
+.form-field textarea {
+  width: 100%;
+  min-height: 116px;
+  resize: vertical;
+}
+
+.field-help {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted-2);
+  font-size: 0.65rem;
+  line-height: 1.45;
 }
